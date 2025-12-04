@@ -5,7 +5,13 @@ langchain
 langchain-community
 langchain-ollama
 pypdf
+pymupdf
 python-multipart
 requests
 numpy
 scikit-learn
+python-docx
+openpyxl
+pytesseract
+pdf2image
+pillow
