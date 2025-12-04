@@ -27,8 +27,7 @@ try:
     from pymongo import MongoClient
     from langchain_community.document_loaders import PyPDFLoader, TextLoader
     from langchain_text_splitters import RecursiveCharacterTextSplitter
-    from langchain_ollama import OllamaEmbeddings
-    from langchain_community.llms import Ollama
+    from langchain_ollama import OllamaEmbeddings, OllamaLLM
     import numpy as np
     from bson.objectid import ObjectId
 except Exception:
@@ -149,7 +148,7 @@ def chat(request: QueryRequest):
     context = "\n\n".join([r[1] for r in top_k])
     
     # Generate response
-    llm = Ollama(model=request.model, base_url=OLLAMA_BASE_URL)
+    llm = OllamaLLM(model=request.model, base_url=OLLAMA_BASE_URL)
     prompt = f"Context:\n{context}\n\nQuestion: {request.query}\n\nAnswer:"
     response = llm.invoke(prompt)
     
