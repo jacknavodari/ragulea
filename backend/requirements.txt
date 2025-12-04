@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+pymongo
+langchain
+langchain-community
+langchain-ollama
+pypdf
+python-multipart
+requests
+numpy
+scikit-learn

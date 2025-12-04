@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+    <Package Name="RAGulea" Language="1033" Version="1.0.0.0" Manufacturer="Antigravity" UpgradeCode="12345678-1234-1234-1234-111111111111">
+        <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+        <MediaTemplate EmbedCab="yes" />
+
+        <Feature Id="ProductFeature" Title="RAGulea" Level="1">
+            <ComponentGroupRef Id="ProductComponents" />
+            <ComponentRef Id="ApplicationShortcut" />
+        </Feature>
+
+        <StandardDirectory Id="ProgramFilesFolder">
+            <Directory Id="INSTALLFOLDER" Name="RAGulea" />
+        </StandardDirectory>
+        
+        <StandardDirectory Id="ProgramMenuFolder">
+            <Directory Id="ApplicationProgramsFolder" Name="RAGulea"/>
+        </StandardDirectory>
+
+        <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+            <Component Id="ProductComponent" Guid="12345678-1234-1234-1234-222222222222">
+                <File Id="RaguleaEXE" Source="..\backend\dist\ragulea.exe" />
+            </Component>
+        </ComponentGroup>
+
+        <Component Id="ApplicationShortcut" Directory="ApplicationProgramsFolder" Guid="12345678-1234-1234-1234-333333333333">
+            <Shortcut Id="ApplicationStartMenuShortcut"
+                      Name="RAGulea"
+                      Description="RAG App"
+                      Target="[INSTALLFOLDER]ragulea.exe"
+                      WorkingDirectory="INSTALLFOLDER"/>
+            <RemoveFolder Id="CleanUpShortCut" On="uninstall"/>
+            <RegistryValue Root="HKCU" Key="Software\Antigravity\RAGulea" Name="installed" Type="integer" Value="1" />
+        </Component>
+    </Package>
+</Wix>
