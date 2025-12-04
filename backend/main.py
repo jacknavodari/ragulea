@@ -194,11 +194,55 @@ if os.path.exists(frontend_base_path):
 
 if __name__ == "__main__":
     try:
-        # Try to find an available port between 8000 and 8100; fallback to ephemeral port if none available
         import socket as _socket
         import webbrowser
         import threading
+        import requests
         
+        print("=" * 60)
+        print("RAGulea - Starting up...")
+        print("=" * 60)
+        
+        # Check prerequisites
+        print("\n🔍 Checking prerequisites...")
+        
+        # Check MongoDB
+        try:
+            client.server_info()
+            print("✅ MongoDB: Connected")
+        except Exception as e:
+            print("❌ MongoDB: NOT RUNNING")
+            print("\n⚠️  ERROR: MongoDB is not running!")
+            print("   Please install and start MongoDB:")
+            print("   Download: https://www.mongodb.com/try/download/community")
+            print("\n   Or start MongoDB service:")
+            print("   > net start MongoDB")
+            input("\nPress Enter to exit...")
+            sys.exit(1)
+        
+        # Check Ollama
+        try:
+            response = requests.get(f"{OLLAMA_BASE_URL}/api/tags", timeout=2)
+            if response.status_code == 200:
+                models = response.json().get("models", [])
+                print(f"✅ Ollama: Connected ({len(models)} models available)")
+                if len(models) == 0:
+                    print("   ⚠️  Warning: No models found. Please pull models:")
+                    print("   > ollama pull mxbai-embed-large")
+                    print("   > ollama pull llama3")
+            else:
+                raise Exception("Ollama not responding")
+        except Exception as e:
+            print("❌ Ollama: NOT RUNNING")
+            print("\n⚠️  ERROR: Ollama is not running!")
+            print("   Please install Ollama:")
+            print("   Download: https://ollama.ai/download")
+            print("\n   Or start Ollama:")
+            print("   > ollama serve")
+            input("\nPress Enter to exit...")
+            sys.exit(1)
+        
+        # Find available port
         chosen_port = None
         for p in range(8000, 8101):
             s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
@@ -213,11 +257,13 @@ if __name__ == "__main__":
         if chosen_port is None:
             chosen_port = 0
         
+        print("\n" + "=" * 60)
+        print(f"🚀 RAGulea Server Starting...")
+        print(f"📍 Server: http://localhost:{chosen_port}")
+        print(f"🎨 Frontend: {'AVAILABLE' if os.path.exists(frontend_base_path) else 'NOT FOUND'}")
         print("=" * 60)
-        print(f"RAGulea Server Starting...")
-        print(f"Server will be available at: http://localhost:{chosen_port}")
-        print(f"Frontend is {'AVAILABLE' if os.path.exists(frontend_base_path) else 'NOT FOUND'}")
-        print("=" * 60)
+        print("\n✨ Opening browser in 2 seconds...")
+        print("   (You can close this window to stop the server)\n")
         
         # Open browser after a short delay to let server start
         def open_browser():

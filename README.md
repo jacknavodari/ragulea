@@ -15,30 +15,54 @@ A modern **Retrieval-Augmented Generation (RAG)** desktop application that lets 
 - 🖥️ **Desktop App**: Windows installer for easy deployment
 - 🔒 **Privacy First**: All processing happens locally on your machine
 
-## 📋 Prerequisites
+## ⚠️ Important: Prerequisites Required
 
-Before installing RAGulea, ensure you have the following installed:
+**RAGulea requires external services to function.** The installer is lightweight (~80MB) but you MUST install these prerequisites first:
 
-### 1. MongoDB
-Download and install MongoDB Community Server:
-- **Download**: [MongoDB Community Server](https://www.mongodb.com/try/download/community)
-- **Default Connection**: `mongodb://localhost:27017/`
-- Ensure MongoDB service is running
+### 1. MongoDB (Required)
+RAGulea stores document embeddings in MongoDB.
 
-### 2. Ollama
-Install Ollama for local AI model inference:
-- **Download**: [Ollama](https://ollama.ai/)
-- **Start Ollama**: Run `ollama serve` in terminal
-- **Pull Required Models**:
-  ```bash
-  # Embedding model (required)
-  ollama pull mxbai-embed-large
-  
-  # Generation models (choose one or more)
-  ollama pull llama3
-  ollama pull mistral
-  ollama pull phi3
-  ```
+**Installation:**
+1. Download: [MongoDB Community Server](https://www.mongodb.com/try/download/community)
+2. Run installer with default settings
+3. MongoDB will start automatically as a Windows service
+4. Verify: Open Command Prompt and type `mongosh` (should connect)
+
+**Size:** ~500MB | **Time:** 5 minutes
+
+### 2. Ollama (Required)
+RAGulea uses Ollama for AI model inference.
+
+**Installation:**
+1. Download: [Ollama for Windows](https://ollama.ai/download/windows)
+2. Run installer
+3. Ollama starts automatically in the background
+4. Verify: Open Command Prompt and type `ollama list`
+
+**Size:** ~200MB | **Time:** 2 minutes
+
+### 3. AI Models (Required)
+Download at least one embedding model and one generation model.
+
+**Required Models:**
+```bash
+# Embedding model (REQUIRED - for document processing)
+ollama pull mxbai-embed-large
+
+# Generation model (REQUIRED - choose at least one)
+ollama pull llama3        # Recommended - 4.7GB
+ollama pull mistral       # Alternative - 4.1GB  
+ollama pull phi3          # Smaller - 2.3GB
+```
+
+**Size:** 6-8GB total | **Time:** 10-20 minutes (depends on internet speed)
+
+### System Requirements
+
+- **OS:** Windows 10 or Windows 11 (64-bit)
+- **RAM:** 8GB minimum, 16GB recommended
+- **Disk Space:** 10GB free (for MongoDB, Ollama, and models)
+- **Internet:** Required for initial setup (downloading models)
 
 ## 🚀 Installation
 
