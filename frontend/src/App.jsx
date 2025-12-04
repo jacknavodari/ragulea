@@ -7,6 +7,7 @@ const API_URL = 'http://localhost:8000/api'
 
 function App() {
   const [models, setModels] = useState([])
+  const [embeddingModels, setEmbeddingModels] = useState([])
   const [selectedModel, setSelectedModel] = useState('')
   const [embeddingModel, setEmbeddingModel] = useState('mxbai-embed-large:latest')
   const [query, setQuery] = useState('')
@@ -28,11 +29,33 @@ function App() {
   const fetchModels = async () => {
     try {
       const res = await axios.get(`${API_URL}/models`)
-      setModels(res.data.models || [])
-      if (res.data.models && res.data.models.length > 0) {
-        // Try to find a good default
-        const defaultModel = res.data.models.find(m => m.includes('llama3') || m.includes('mistral')) || res.data.models[0]
+      const allModels = res.data.models || []
+      
+      // Separate embedding models from generation models
+      const embeddingModelsList = allModels.filter(m => 
+        m.includes('embed') || m.includes('nomic')
+      )
+      const generationModelsList = allModels.filter(m => 
+        !m.includes('embed') && !m.includes('nomic')
+      )
+      
+      setModels(generationModelsList)
+      setEmbeddingModels(embeddingModelsList)
+      
+      // Set default generation model
+      if (generationModelsList.length > 0) {
+        const defaultModel = generationModelsList.find(m => 
+          m.includes('llama3') || m.includes('mistral')
+        ) || generationModelsList[0]
         setSelectedModel(defaultModel)
+      }
+      
+      // Set default embedding model
+      if (embeddingModelsList.length > 0) {
+        const defaultEmbed = embeddingModelsList.find(m => 
+          m.includes('mxbai-embed-large')
+        ) || embeddingModelsList[0]
+        setEmbeddingModel(defaultEmbed)
       }
     } catch (err) {
       console.error("Failed to fetch models", err)
@@ -100,16 +123,18 @@ function App() {
             
             <label>Generation Model</label>
             <select value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)}>
+              {models.length === 0 && <option>No models found</option>}
               {models.map(m => <option key={m} value={m}>{m}</option>)}
             </select>
 
             <label>Embedding Model</label>
-            <input 
-              type="text" 
-              value={embeddingModel} 
-              onChange={(e) => setEmbeddingModel(e.target.value)}
-              placeholder="e.g. mxbai-embed-large:latest"
-            />
+            <select value={embeddingModel} onChange={(e) => setEmbeddingModel(e.target.value)}>
+              {embeddingModels.length === 0 && <option>No embedding models found</option>}
+              {embeddingModels.map(m => <option key={m} value={m}>{m}</option>)}
+            </select>
+            <small style={{opacity: 0.6, fontSize: '0.75em', marginTop: '-0.5rem'}}>
+              Used for document processing and search
+            </small>
           </div>
 
           <div className="section" style={{marginTop: '2rem'}}>
