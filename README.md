@@ -22,7 +22,6 @@ A modern **Retrieval-Augmented Generation (RAG)** desktop application that lets 
 - 🔒 **Privacy First**: All processing happens locally on your machine
 
 > **NEW!** Check out [CUSTOM_COLLECTIONS_GUIDE.md](CUSTOM_COLLECTIONS_GUIDE.md) for the custom collections feature!
-> **Also see:** [NEW_FEATURES.md](NEW_FEATURES.md) for a detailed guide on all latest updates!
 
 ## ⚠️ Important: Prerequisites Required
 
