@@ -532,11 +532,39 @@ def chat(request: QueryRequest):
     for i, (score, content, filename) in enumerate(top_k):
         print(f"      {i+1}. Score: {score:.4f} | File: {filename} | Preview: {content[:100]}...")
     
+    # Check if we have any documents
+    if total_docs_searched == 0:
+        return {
+            "response": "I don't have any documents in my database yet. Please upload some documents first so I can help answer your questions.",
+            "context": []
+        }
+    
+    # Check if we found relevant results
+    if len(top_k) == 0:
+        return {
+            "response": f"I searched through {total_docs_searched} documents but couldn't find any relevant information to answer your question. Try rephrasing your question or upload more documents related to this topic.",
+            "context": []
+        }
+    
     context = "\n\n".join([r[1] for r in top_k])
     
-    # Generate response
+    # Generate response with better prompt
     llm = OllamaLLM(model=request.model, base_url=OLLAMA_BASE_URL)
-    prompt = f"Context:\n{context}\n\nQuestion: {request.query}\n\nAnswer:"
+    prompt = f"""You are a helpful assistant that answers questions based ONLY on the provided context from documents.
+
+Context from documents:
+{context}
+
+Question: {request.query}
+
+Instructions:
+- Answer the question using ONLY the information from the context above
+- If the context doesn't contain enough information to answer the question, say "I don't have enough information in the uploaded documents to answer this question."
+- Be specific and cite relevant parts of the context
+- Do not make up information that isn't in the context
+
+Answer:"""
+    
     response = llm.invoke(prompt)
     
     return {"response": response, "context": [r[1] for r in top_k]}
