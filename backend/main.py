@@ -77,7 +77,60 @@ app.add_middleware(
 MONGO_URI = "mongodb://localhost:27017/"
 client = MongoClient(MONGO_URI)
 db = client["rag_app_db"]
-collection = db["documents"]
+
+# Collections organized by document type for better performance
+# Default collections
+DEFAULT_COLLECTIONS = {
+    "pdf": "documents_pdf",
+    "text": "documents_text",
+    "code": "documents_code",
+    "office": "documents_office",
+    "other": "documents_other"
+}
+
+# Initialize collections dictionary with defaults
+collections = {name: db[coll_name] for name, coll_name in DEFAULT_COLLECTIONS.items()}
+
+def get_all_collection_names():
+    """Get all collection names from MongoDB"""
+    return [name for name in db.list_collection_names() if name.startswith('documents_')]
+
+def load_all_collections():
+    """Load all collections including custom ones"""
+    global collections
+    all_coll_names = get_all_collection_names()
+    collections = {}
+    
+    # Add default collections
+    for name, coll_name in DEFAULT_COLLECTIONS.items():
+        collections[name] = db[coll_name]
+    
+    # Add custom collections
+    for coll_name in all_coll_names:
+        if coll_name not in DEFAULT_COLLECTIONS.values():
+            # Extract custom name (remove 'documents_' prefix)
+            custom_name = coll_name.replace('documents_', '')
+            if custom_name not in collections:
+                collections[custom_name] = db[coll_name]
+    
+    return collections
+
+# Load all collections on startup
+load_all_collections()
+
+def get_collection_for_file(filename: str):
+    """Determine which collection to use based on file type"""
+    file_lower = filename.lower()
+    if file_lower.endswith(".pdf"):
+        return collections["pdf"]
+    elif file_lower.endswith((".txt", ".md", ".markdown")):
+        return collections["text"]
+    elif file_lower.endswith((".py", ".js", ".jsx", ".ts", ".tsx", ".java", ".cpp", ".c", ".h", ".cs", ".go", ".rs", ".rb", ".php", ".json", ".xml", ".yaml", ".yml", ".html", ".css")):
+        return collections["code"]
+    elif file_lower.endswith((".docx", ".doc", ".xlsx", ".xls")):
+        return collections["office"]
+    else:
+        return collections["other"]
 
 # Ollama Setup
 OLLAMA_BASE_URL = "http://localhost:11434"
@@ -92,9 +145,21 @@ class QueryRequest(BaseModel):
     query: str
     model: str
     embedding_model: Optional[str] = "mxbai-embed-large:latest"
+    collection_filter: Optional[List[str]] = None  # Filter by collection types
 
 class ModelListResponse(BaseModel):
     models: List[str]
+
+class CollectionStats(BaseModel):
+    pdf: int
+    text: int
+    code: int
+    office: int
+    other: int
+    total: int
+
+class CreateCollectionRequest(BaseModel):
+    name: str
 
 def get_embeddings(text: str, model: str):
     embeddings = OllamaEmbeddings(model=model, base_url=OLLAMA_BASE_URL)
@@ -113,9 +178,118 @@ def get_models():
         return {"models": [], "error": str(e)}
     return {"models": []}
 
+@app.get("/api/collections/stats")
+def get_collection_stats():
+    """Get document counts for each collection"""
+    stats = {}
+    total = 0
+    for name, coll in collections.items():
+        count = coll.count_documents({})
+        stats[name] = count
+        total += count
+    stats["total"] = total
+    return stats
+
+@app.delete("/api/collections/{collection_name}")
+def clear_collection(collection_name: str):
+    """Clear all documents from a specific collection"""
+    if collection_name not in collections:
+        raise HTTPException(status_code=404, detail="Collection not found")
+    result = collections[collection_name].delete_many({})
+    return {"deleted": result.deleted_count}
+
+@app.delete("/api/collections")
+def clear_all_collections():
+    """Clear all documents from all collections"""
+    total_deleted = 0
+    for coll in collections.values():
+        result = coll.delete_many({})
+        total_deleted += result.deleted_count
+    return {"deleted": total_deleted}
+
+@app.post("/api/collections/create")
+def create_collection(request: CreateCollectionRequest):
+    """Create a new custom collection"""
+    print(f"📝 Received create collection request: {request}")
+    name = request.name
+    print(f"📝 Collection name: {name}")
+    
+    # Validate collection name
+    if not name or not name.strip():
+        print("❌ Collection name is empty")
+        raise HTTPException(status_code=400, detail="Collection name cannot be empty")
+    
+    # Sanitize name (lowercase, alphanumeric + underscore only)
+    sanitized_name = ''.join(c.lower() if c.isalnum() or c == '_' else '_' for c in name.strip())
+    print(f"📝 Sanitized name: {sanitized_name}")
+    
+    if sanitized_name in collections:
+        print(f"❌ Collection already exists: {sanitized_name}")
+        raise HTTPException(status_code=400, detail="Collection already exists")
+    
+    # Create collection in MongoDB
+    coll_name = f"documents_{sanitized_name}"
+    collections[sanitized_name] = db[coll_name]
+    print(f"✅ Created MongoDB collection: {coll_name}")
+    
+    # Create an index for better performance
+    collections[sanitized_name].create_index("embedding_model")
+    print(f"✅ Created index for collection: {sanitized_name}")
+    
+    return {
+        "status": "success",
+        "collection_name": sanitized_name,
+        "mongodb_collection": coll_name
+    }
+
+@app.get("/api/collections/list")
+def list_all_collections():
+    """List all available collections including custom ones"""
+    load_all_collections()  # Refresh collections
+    
+    collection_info = []
+    for name, coll in collections.items():
+        count = coll.count_documents({})
+        is_default = name in DEFAULT_COLLECTIONS
+        collection_info.append({
+            "name": name,
+            "count": count,
+            "is_default": is_default,
+            "mongodb_name": coll.name
+        })
+    
+    return {"collections": collection_info}
+
+@app.delete("/api/collections/custom/{collection_name}")
+def delete_custom_collection(collection_name: str):
+    """Delete a custom collection (cannot delete default collections)"""
+    if collection_name in DEFAULT_COLLECTIONS:
+        raise HTTPException(status_code=400, detail="Cannot delete default collections")
+    
+    if collection_name not in collections:
+        raise HTTPException(status_code=404, detail="Collection not found")
+    
+    # Drop the collection from MongoDB
+    coll_name = f"documents_{collection_name}"
+    db.drop_collection(coll_name)
+    
+    # Remove from collections dict
+    del collections[collection_name]
+    
+    return {"status": "success", "deleted": collection_name}
+
 @app.post("/api/upload")
-async def upload_file(file: UploadFile = File(...), embedding_model: str = "mxbai-embed-large:latest"):
+async def upload_file(
+    file: UploadFile = File(...), 
+    embedding_model: str = "mxbai-embed-large:latest",
+    target_collection: Optional[str] = None
+):
     file_path = os.path.join(UPLOAD_DIR, file.filename)
+    
+    print(f"\n📤 UPLOAD REQUEST:")
+    print(f"   File: {file.filename}")
+    print(f"   Embedding Model: {embedding_model}")
+    print(f"   Target Collection: {target_collection}")
     
     try:
         with open(file_path, "wb") as buffer:
@@ -278,8 +452,18 @@ async def upload_file(file: UploadFile = File(...), embedding_model: str = "mxba
         if len(chunks) == 0:
             raise HTTPException(status_code=400, detail="No content to process after splitting")
         
-        # Embed and store
+        # Embed and store in appropriate collection
         embeddings_model = OllamaEmbeddings(model=embedding_model, base_url=OLLAMA_BASE_URL)
+        
+        # Use specified collection or auto-detect
+        if target_collection and target_collection in collections:
+            collection_to_use = collections[target_collection]
+            print(f"✅ Using specified collection: {target_collection} ({collection_to_use.name})")
+        else:
+            collection_to_use = get_collection_for_file(file.filename)
+            print(f"🔄 Auto-detected collection: {collection_to_use.name}")
+            if target_collection:
+                print(f"⚠️  Requested collection '{target_collection}' not found, using auto-detect")
         
         for chunk in chunks:
             vector = embeddings_model.embed_query(chunk)
@@ -289,7 +473,7 @@ async def upload_file(file: UploadFile = File(...), embedding_model: str = "mxba
                 "embedding": vector,
                 "embedding_model": embedding_model
             }
-            collection.insert_one(doc)
+            collection_to_use.insert_one(doc)
             
         return {"status": "success", "chunks_processed": len(chunks)}
     
@@ -305,24 +489,49 @@ def cosine_similarity(a, b):
 
 @app.post("/api/chat")
 def chat(request: QueryRequest):
+    print(f"\n🔍 CHAT REQUEST:")
+    print(f"   Query: {request.query}")
+    print(f"   Model: {request.model}")
+    print(f"   Embedding Model: {request.embedding_model}")
+    print(f"   Collection Filter: {request.collection_filter}")
+    
     # Embed query
     embeddings_model = OllamaEmbeddings(model=request.embedding_model, base_url=OLLAMA_BASE_URL)
     query_vector = embeddings_model.embed_query(request.query)
     
-    # Retrieve documents (Simple vector search in memory for now as Mongo Community doesn't do it natively easily without Atlas Search or plugins)
-    # For a local app with reasonable data, we can fetch relevant docs or use a proper vector store. 
-    # Since user insisted on "this data base" (MongoDB), we will fetch all docs with matching embedding_model and compute similarity.
-    # Note: This is not scalable for huge datasets but fine for a personal RAG app.
+    # Determine which collections to search
+    collections_to_search = collections.values()
+    if request.collection_filter:
+        collections_to_search = [collections[name] for name in request.collection_filter if name in collections]
+        print(f"   Searching collections: {request.collection_filter}")
+    else:
+        print(f"   Searching ALL collections ({len(collections)} total)")
     
-    cursor = collection.find({"embedding_model": request.embedding_model})
+    # Retrieve documents from relevant collections only
     results = []
-    for doc in cursor:
-        if "embedding" in doc:
-            score = cosine_similarity(query_vector, doc["embedding"])
-            results.append((score, doc["content"]))
-            
+    total_docs_searched = 0
+    for coll in collections_to_search:
+        cursor = coll.find({"embedding_model": request.embedding_model})
+        coll_docs = 0
+        for doc in cursor:
+            coll_docs += 1
+            if "embedding" in doc:
+                score = cosine_similarity(query_vector, doc["embedding"])
+                results.append((score, doc["content"], doc.get("filename", "unknown")))
+        total_docs_searched += coll_docs
+        if coll_docs > 0:
+            print(f"   📁 {coll.name}: {coll_docs} documents")
+    
+    print(f"   Total documents searched: {total_docs_searched}")
+    
+    # Sort and get top results
     results.sort(key=lambda x: x[0], reverse=True)
     top_k = results[:5]
+    
+    print(f"   Top {len(top_k)} results:")
+    for i, (score, content, filename) in enumerate(top_k):
+        print(f"      {i+1}. Score: {score:.4f} | File: {filename} | Preview: {content[:100]}...")
+    
     context = "\n\n".join([r[1] for r in top_k])
     
     # Generate response

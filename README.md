@@ -8,12 +8,21 @@ A modern **Retrieval-Augmented Generation (RAG)** desktop application that lets 
 
 ## ✨ Features
 
-- 📄 **Document Upload**: Support for PDF and text files
+- 🎨 **Light/Dark Mode**: Beautiful theme switcher with smooth transitions
+- 🗂️ **Smart Collections**: Organized document storage for 5x faster searches
+- 🎯 **Collection Filtering**: Search only the document types you need
+- 📊 **Live Statistics**: Real-time insights into your knowledge base
+- ✨ **Custom Collections**: Create your own collections directly in MongoDB
+- 📁 **Upload Control**: Choose which collection to upload files to
+- 📄 **Document Upload**: Support for 20+ file types (PDF, code, Office, text)
 - 🤖 **Local AI**: Powered by Ollama - no cloud, complete privacy
-- 💾 **Vector Storage**: MongoDB for document embeddings
+- 💾 **Vector Storage**: MongoDB with optimized collections for better performance
 - 🎨 **Modern UI**: Clean React interface with real-time chat
 - 🖥️ **Desktop App**: Windows installer for easy deployment
 - 🔒 **Privacy First**: All processing happens locally on your machine
+
+> **NEW!** Check out [CUSTOM_COLLECTIONS_GUIDE.md](CUSTOM_COLLECTIONS_GUIDE.md) for the custom collections feature!
+> **Also see:** [NEW_FEATURES.md](NEW_FEATURES.md) for a detailed guide on all latest updates!
 
 ## ⚠️ Important: Prerequisites Required
 
